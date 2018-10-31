@@ -52,14 +52,22 @@ table_I1 = reshape(table_I1.',[],1);
 psdu_hex = reshape(table_I1, 2, []).';
 psdu_dec = hex2dec(psdu_hex);
 
-% Separate PSDU into MAC header, message and CRC
+% Separate PSDU into MAC header, message and FCS
 mac_header_dec = psdu_dec(1:24);
 message_dec = psdu_dec(25:end-4);
-crc_dec = psdu_dec(end-3:end);
+fcs_dec = psdu_dec(end-3:end);
 
 % Sanity check message content
 message_char = char(message_dec).';
 assert(isequal(message_char, a));
+
+% Calculate FCS (CRC)
+fcs_calculated = generate_crc(psdu_dec(1:end-4));
+% Arrange into bytes and reverse byte order
+fcs_calculated_hex = flipud(reshape(dec2hex(fcs_calculated), 2, []).');
+
+% Sanity check FCS
+assert(isequal(dec2hex(fcs_dec), fcs_calculated_hex));
 
 % ====================================== %
 % == I.1.3 Generation of the preamble == %
