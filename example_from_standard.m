@@ -1,13 +1,13 @@
 close all; clear all; clc;
 
-% This script works through Annex G of the standard (p1079 in my version).
+% This script works through Annex I.1 of the 802.11-2016 standard.
 
 % Make sure we can see the helper subroutines
 addpath('modulator helpers');
 
-% ====================== %
-% == G.1 Introduction == %
-% ====================== %
+% ======================== %
+% == I.1.1 Introduction == %
+% ======================== %
 
 % "This example uses the 36 Mb/s data rate..."
 rate_info_lut = get_rate_info();
@@ -16,16 +16,16 @@ rate_info = rate_info_lut(6);
 % "... and a message of 100 octets"
 length_bytes = 100;
 
-% ===================== %
-% == G.2 The Message == %
-% ===================== %
+% ======================= %
+% == I.1.2 The Message == %
+% ======================= %
 
 % The 72-character message
 a = ['Joy, bright spark of divinity,' char(10) 'Daughter of Elysium,' char(10) 'Fire-insired we trea'];
 
-% [Table G.1] The 100-byte PSDU in hex
+% [Table I-1] The 100-byte PSDU in hex
 % Comprises: 24-Byte MAC + 72-Byte DATA + 4-Byte CRC.
-b = [...
+table_I1 = [...
 '0402002e00';
 '6008cd37a6';
 '0020d6013c';
@@ -45,31 +45,31 @@ b = [...
 '2d696e7369';
 '7265642077';
 '6520747265';
-'61da5799ed']; % N.B. This FCS is *INCORRECT* (see: IEEE 802.11-09/0042r0)
+'61673321b6'];
 
 % Gradually manipulate PSDU into vector of bytes
-b = reshape(b.',[],1);
-psdu_hex = reshape(b, 2, []).';
+table_I1 = reshape(table_I1.',[],1);
+psdu_hex = reshape(table_I1, 2, []).';
 psdu_dec = hex2dec(psdu_hex);
 
 % Separate PSDU into MAC header, message and CRC
 mac_header_dec = psdu_dec(1:24);
 message_dec = psdu_dec(25:end-4);
-crc_dec = psdu_dec(end-3:end); % N.B. INCORRECT (see IEEE 802.11-09/0042r0)
+crc_dec = psdu_dec(end-3:end);
 
 % Sanity check message content
 message_char = char(message_dec).';
 assert(isequal(message_char, a));
 
-% ==================================== %
-% == G.3 Generation of the preamble == %
-% ==================================== %
+% ====================================== %
+% == I.1.3 Generation of the preamble == %
+% ====================================== %
 
-% ---------------------------- %
-% -- G.3.1 Short sequences  -- %
-% ---------------------------- %
+% ------------------------------ %
+% -- I.1.3.1 Short sequences  -- %
+% ------------------------------ %
 
-% [Table G.2] Frequency domain representation of the short sequences.
+% [Table I-2] Frequency domain representation of the short sequences.
 % Note: We'll use better precision here: sqrt(13/6) instead of 1.472.
 p = 1+1j;
 STF_26 = sqrt(13/6)*[0, 0, +p, 0, 0, 0, -p, 0, ...
@@ -80,13 +80,13 @@ STF_26 = sqrt(13/6)*[0, 0, +p, 0, 0, 0, -p, 0, ...
                      0, 0, +p, 0, 0, 0, +p, 0, ...
                      0, 0, +p, 0, 0].';
 % Zero-pad up to OFDM symbol size
-table_G2 = [0*(-32:-27).'; STF_26; 0*(27:31).'];
+table_I2 = [0*(-32:-27).'; STF_26; 0*(27:31).'];
 
 % FFT shift to put DC where it belongs and do OFDM IFFT
-stf_64 = ifft(fftshift(table_G2));
+stf_64 = ifft(fftshift(table_I2));
 
-% [Table G.3] One period of IFFT of the short sequences
-table_G3 = [
+% [Table I-3] One period of IFFT of the short sequences
+table_I3 = [
 0 0.046 0.046 1 -0.132 0.002 2 -0.013 -0.079 3 0.143 -0.013
 4 0.092 0.000 5 0.143 -0.013 6 -0.013 -0.079 7 -0.132 0.002
 8 0.046 0.046 9 0.002 -0.132 10 -0.079 -0.013 11 -0.013 0.143
@@ -104,16 +104,16 @@ table_G3 = [
 56 0.046 0.046 57 0.002 -0.132 58 -0.079 -0.013 59 -0.013 0.143
 60 0.000 0.092 61 -0.013 0.143 62 -0.079 -0.013 63 0.002 -0.132];
 % Discard columns of indices
-table_G3(:,[1,4,7,10]) = [];
+table_I3(:,[1,4,7,10]) = [];
 % Convert to complex
-table_G3 = complex(table_G3(:,1:2:end), table_G3(:,2:2:end));
+table_I3 = complex(table_I3(:,1:2:end), table_I3(:,2:2:end));
 % Stack in order
-table_G3 = reshape(table_G3.', [], 1);
+table_I3 = reshape(table_I3.', [], 1);
 
 % Sanity check (up to 3 decimal places)
-table_G3_err = stf_64 - table_G3;
-table_G3_err = [real(table_G3_err); imag(table_G3_err)];
-assert(all(abs(table_G3_err) < 0.001));
+table_I3_err = stf_64 - table_I3;
+table_I3_err = [real(table_I3_err); imag(table_I3_err)];
+assert(all(abs(table_I3_err) < 0.001));
 
 % Extend periodically up to 161 samples. N.B. We don't need to do anything
 % else for STF due to its 16-sample periodicity.
@@ -123,8 +123,8 @@ stf_161 = stf_161(1:161);
 stf_161(1) = 0.5 * stf_161(1);
 stf_161(161) = 0.5 * stf_161(161);
 
-% [Table G.4] Time domain representation of the short sequence
-table_G4 = [
+% [Table I-4] Time domain representation of the short sequence
+table_I4 = [
 0 0.023 0.023 1 -0.132 0.002 2 -0.013 -0.079 3 0.143 -0.013
 4 0.092 0.000 5 0.143 -0.013 6 -0.013 -0.079 7 -0.132 0.002
 8 0.046 0.046 9 0.002 -0.132 10 -0.079 -0.013 11 -0.013 0.143
@@ -167,25 +167,25 @@ table_G4 = [
 156 0.000 0.092 157 -0.013 0.143 158 -0.079 -0.013 159 0.002 -0.132
 160 0.023 0.023 000 000000 00000 000 000000 000000 000 00000 000000];
 % Discard columns of indices
-table_G4(:,[1,4,7,10]) = [];
+table_I4(:,[1,4,7,10]) = [];
 % Convert to complex
-table_G4 = complex(table_G4(:,1:2:end), table_G4(:,2:2:end));
+table_I4 = complex(table_I4(:,1:2:end), table_I4(:,2:2:end));
 % Stack in order
-table_G4 = reshape(table_G4.', [], 1);
+table_I4 = reshape(table_I4.', [], 1);
 % Discard zero-padding at the end
-table_G4 = table_G4(1:161);
+table_I4 = table_I4(1:161);
 
 % Sanity check (up to 3 decimal places)
-table_G4_err = stf_161 - table_G4;
-table_G4_err = [real(table_G4_err); imag(table_G4_err)];
-assert(all(abs(table_G4_err) < 0.001));
+table_I4_err = stf_161 - table_I4;
+table_I4_err = [real(table_I4_err); imag(table_I4_err)];
+assert(all(abs(table_I4_err) < 0.001));
 
-% --------------------------- %
-% -- G.3.2 Long sequences  -- %
-% --------------------------- %
+% ----------------------------- %
+% -- I.1.3.2 Long sequences  -- %
+% ----------------------------- %
 
-% [Table G.5] Frequency domain representation of the long sequences
-table_G5 = [
+% [Table I-5] Frequency domain representation of the long sequences
+table_I5 = [
 -32 0 0 -16 1 0 0 0 0 16 1 0
 -31 0 0 -15 1 0 1 1 0 17 -1 0
 -30 0 0 -14 1 0 2 -1 0 18 -1 0
@@ -203,14 +203,14 @@ table_G5 = [
 -18 -1 0 -2 1 0 14 -1 0 30 0 0
 -17 1 0 -1 1 0 15 1 0 31 0 0];
 % Discard columns of indices
-table_G5(:,[1,4,7,10]) = [];
+table_I5(:,[1,4,7,10]) = [];
 % Convert to complex
-table_G5 = complex(table_G5(:,1:2:end), table_G5(:,2:2:end));
+table_I5 = complex(table_I5(:,1:2:end), table_I5(:,2:2:end));
 % Stack in order
-table_G5 = reshape(table_G5, [], 1);
+table_I5 = reshape(table_I5, [], 1);
 
 % FFT shift to put DC where it belongs and do OFDM IFFT
-ltf_64 = ifft(fftshift(table_G5));
+ltf_64 = ifft(fftshift(table_I5));
 
 % Extend periodically up to 161 samples...
 ltf_161 = repmat(ltf_64, ceil(161/64), 1);
@@ -223,8 +223,8 @@ ltf_161 = ltf_161(1:161);
 ltf_161(1) = 0.5 * ltf_161(1);
 ltf_161(161) = 0.5 * ltf_161(161);
 
-% [Table G.6] Time domain representation of the long sequence
-table_G6 = [
+% [Table I-6] Time domain representation of the long sequence
+table_I6 = [
 0 -0.078 0.000 1 0.012 -0.098 2 0.092 -0.106 3 -0.092 -0.115
 4 -0.003 -0.054 5 0.075 0.074 6 -0.127 0.021 7 -0.122 0.017
 8 -0.035 0.151 9 -0.056 0.022 10 -0.060 -0.081 11 0.070 -0.014
@@ -267,25 +267,25 @@ table_G6 = [
 156 0.021 -0.028 157 0.097 -0.083 158 0.040 0.111 159 -0.005 0.120
 160 0.078 0.000  000 00000 000000 000 00000 00000 000 000000 00000];
 % Discard columns of indices
-table_G6(:,[1,4,7,10]) = [];
+table_I6(:,[1,4,7,10]) = [];
 % Convert to complex
-table_G6 = complex(table_G6(:,1:2:end), table_G6(:,2:2:end));
+table_I6 = complex(table_I6(:,1:2:end), table_I6(:,2:2:end));
 % Stack in order
-table_G6 = reshape(table_G6.', [], 1);
+table_I6 = reshape(table_I6.', [], 1);
 % Discard zero-padding at the end
-table_G6 = table_G6(1:161);
+table_I6 = table_I6(1:161);
 
 % Sanity check (up to 3 decimal places)
-table_G6_err = ltf_161 - table_G6;
-table_G6_err = [real(table_G6_err); imag(table_G6_err)];
-assert(all(abs(table_G6_err) < 0.001));
+table_I6_err = ltf_161 - table_I6;
+table_I6_err = [real(table_I6_err); imag(table_I6_err)];
+assert(all(abs(table_I6_err) < 0.001));
 
-% ========================= %
-% == G.4 Generating SIG  == %
-% ========================= %
+% =========================== %
+% == I.1.4 Generating SIG  == %
+% =========================== %
 
-% [Table G.7] Bit assignment for SIGNAL field
-table_G7 = [
+% [Table I-7] Bit assignment for SIGNAL field
+table_I7 = [
 0 1 12 0
 1 0 13 0
 2 1 14 0
@@ -299,37 +299,37 @@ table_G7 = [
 10 1 22 0
 11 1 23 0];
 % Discard columns of indices
-table_G7(:,[1,3]) = [];
+table_I7(:,[1,3]) = [];
 % Stack in order
-table_G7 = reshape(table_G7, [], 1);
+table_I7 = reshape(table_I7, [], 1);
 
 % Separate out the SIG components
-table_G7_rate = table_G7(1:4);
-table_G7_length = table_G7(6:17);
-table_G7_parity = table_G7(18);
-table_G7_tail = table_G7(19:24);
+table_I7_rate = table_I7(1:4);
+table_I7_length = table_I7(6:17);
+table_I7_parity = table_I7(18);
+table_I7_tail = table_I7(19:24);
 
 % TRUE values for SIG fields
-true_rate = str2num(rate_info.RATE.'); %#ok 36 Mbps (see G.1) => "1011".
-true_length = de2bi(length_bytes, 12).'; % 100 bytes (see G.1). 12-bit field.
-true_parity = mod(sum(table_G7(1:17)), 2); % Even parity (see 17.3.4.3)
+true_rate = str2num(rate_info.RATE.'); %#ok
+true_length = de2bi(length_bytes, 12).';
+true_parity = mod(sum(table_I7(1:17)), 2); % Even parity (see 17.3.4.3)
 true_tail = zeros(6,1); % Tail is always 6 zeros (see 17.3.4.3)
 
 % Sanity checks
-assert(isequal(table_G7_rate, true_rate));
-assert(isequal(table_G7_length, true_length));
-assert(isequal(table_G7_parity, true_parity));
-assert(isequal(table_G7_tail, true_tail)); 
+assert(isequal(table_I7_rate, true_rate));
+assert(isequal(table_I7_length, true_length));
+assert(isequal(table_I7_parity, true_parity));
+assert(isequal(table_I7_tail, true_tail)); 
 
-% ---------------------------------------- %
-% -- G.4.2 Coding the SIGNAL field bits -- %
-% ---------------------------------------- %
+% ------------------------------------------ %
+% -- I.1.4.2 Coding the SIGNAL field bits -- %
+% ------------------------------------------ %
 
 % BCC encode SIG
-encoded_sig = bcc_encode(table_G7);
+encoded_sig = bcc_encode(table_I7);
 
-% [Table G.8] SIGNAL field bits after encoding
-table_G8 = [
+% [Table I-8] SIGNAL field bits after encoding
+table_I8 = [
 0 1 8 1 16 0 24 0 32 0 40 0
 1 1 9 0 17 0 25 0 33 1 41 0
 2 0 10 1 18 0 26 1 34 1 42 0
@@ -339,22 +339,22 @@ table_G8 = [
 6 0 14 0 22 1 30 1 38 0 46 0
 7 1 15 1 23 0 31 0 39 0 47 0];
 % Discard columns of indices
-table_G8(:,1:2:end) = [];
+table_I8(:,1:2:end) = [];
 % Stack in order
-table_G8 = reshape(table_G8, [], 1);
+table_I8 = reshape(table_I8, [], 1);
 
 % Sanity check
-assert(isequal(table_G8, encoded_sig));
+assert(isequal(table_I8, encoded_sig));
 
-% ---------------------------------------------- %
-% -- G.4.3 Interleaving the SIGNAL field bits -- %
-% ---------------------------------------------- %
+% ------------------------------------------------ %
+% -- I.1.4.3 Interleaving the SIGNAL field bits -- %
+% ------------------------------------------------ %
 
 % Interleave SIG
 interleaved_sig = interleave(encoded_sig, 1);
 
-% [Table G.9] SIGNAL field bits after interleaving
-table_G9 = [
+% [Table I-9] SIGNAL field bits after interleaving
+table_I9 = [
 0 1 8 1 16 0 24 1 32 0 40 1
 1 0 9 1 17 0 25 0 33 0 41 0
 2 0 10 0 18 0 26 0 34 1 42 0
@@ -364,16 +364,16 @@ table_G9 = [
 6 0 14 0 22 0 30 1 38 0 46 0
 7 0 15 0 23 0 31 1 39 0 47 0];
 % Discard columns of indices
-table_G9(:,1:2:end) = [];
+table_I9(:,1:2:end) = [];
 % Stack in order
-table_G9 = reshape(table_G9, [], 1);
+table_I9 = reshape(table_I9, [], 1);
 
 % Sanity check
-assert(isequal(table_G9, interleaved_sig));
+assert(isequal(table_I9, interleaved_sig));
 
-% ----------------------------------------- %
-% -- G.4.4 SIGNAL field frequency domain -- %
-% ----------------------------------------- %
+% ------------------------------------------- %
+% -- I.1.4.4 SIGNAL field frequency domain -- %
+% ------------------------------------------- %
 
 % Map SIG
 mapped_sig = map_qam(interleaved_sig.');
@@ -396,8 +396,8 @@ ofdm_sig = zeros(64,1);
 ofdm_sig(data_subcarrs+33) = mapped_sig;
 ofdm_sig(pilot_subcarrs+33) = pilot_values * p127(1);
 
-% [Table G.11] Frequency domain representation of SIGNAL field with pilots
-table_G11 = [
+% [Table I11] Frequency domain representation of SIGNAL field with pilots
+table_I11 = [
 -32 0.000 0.000 -16 1.000 0.000 0 0.000 0.000 16 -1.000 0.000
 -31 0.000 0.000 -15 -1.000 0.000 1 1.000 0.000 17 -1.000 0.000
 -30 0.000 0.000 -14 1.000 0.000 2 -1.000 0.000 18 1.000 0.000
@@ -415,23 +415,23 @@ table_G11 = [
 -18 -1.000 0.000 -2 -1.000 0.000 14 -1.000 0.000 30 0.000 0.000
 -17 1.000 0.000 -1 -1.000 0.000 15 1.000 0.000 31 0.000 0.000];
 % Discard columns of indices
-table_G11(:,1:3:end) = [];
+table_I11(:,1:3:end) = [];
 % Convert to complex
-table_G11 = complex(table_G11(:,1:2:end),table_G11(:,2:2:end));
+table_I11 = complex(table_I11(:,1:2:end),table_I11(:,2:2:end));
 % Stack in order
-table_G11 = reshape(table_G11, [], 1);
+table_I11 = reshape(table_I11, [], 1);
 
 % Sanity check
-assert(isequal(table_G11, ofdm_sig));
+assert(isequal(table_I11, ofdm_sig));
 
-% ------------------------------------ %
-% -- G.4.5 SIGNAL field time domain -- %
-% ------------------------------------ %
+% -------------------------------------- %
+% -- I.1.4.5 SIGNAL field time domain -- %
+% -------------------------------------- %
 
 % Convert to time-domain representation (with cyclic prefix and overlap)
 time_sig = ofdm_ifft(ofdm_sig);
 
-table_G12 = [
+table_I12 = [
 0 0.031 0.000 1 0.033 -0.044 2 -0.002 -0.038 3 -0.081 0.084
 4 0.007 -0.100 5 -0.001 -0.113 6 -0.021 -0.005 7 0.136 -0.105
 8 0.098 -0.044 9 0.011 -0.002 10 -0.033 0.044 11 -0.060 0.124
@@ -454,26 +454,26 @@ table_G12 = [
 76 0.010 0.097 77 0.000 -0.008 78 0.018 -0.083 79 -0.069 0.027
 80 -0.109 0.000 0 00000 000000 00 00000 000000 00 000000 00000];
 % Discard columns of indices
-table_G12(:,1:3:end) = [];
+table_I12(:,1:3:end) = [];
 % Convert to complex
-table_G12 = complex(table_G12(:,1:2:end),table_G12(:,2:2:end));
+table_I12 = complex(table_I12(:,1:2:end),table_I12(:,2:2:end));
 % Stack in order
-table_G12 = reshape(table_G12.', [], 1);
+table_I12 = reshape(table_I12.', [], 1);
 % Discard zero-padding
-table_G12 = table_G12(1:81);
+table_I12 = table_I12(1:81);
 
 % Sanity check (up to 3 decimal places)
-table_G12_err = time_sig - table_G12;
-table_G12_err = [real(table_G12_err); imag(table_G12_err)];
-assert(all(abs(table_G12_err) < 0.001));
+table_I12_err = time_sig - table_I12;
+table_I12_err = [real(table_I12_err); imag(table_I12_err)];
+assert(all(abs(table_I12_err) < 0.001));
 
-% ================================== %
-% == G.5 Generating the DATA bits == %
-% ================================== %
+% ==================================== %
+% == I.1.5 Generating the DATA bits == %
+% ==================================== %
 
-% ------------------------------------------------------------------- %
-% -- G.5.1 Delineating, SERVICE field prepending, and zero padding -- %
-% ------------------------------------------------------------------- %
+% --------------------------------------------------------------------- %
+% -- I.1.5.1 Delineating, SERVICE field prepending, and zero padding -- %
+% --------------------------------------------------------------------- %
 
 % Number of required bits
 Nservice = 16;
@@ -494,86 +494,64 @@ psdu_bin = reshape(psdu_bin.', [], 1);
 data = zeros(Ntotal,1);
 data(Nservice+(1:Nmsg)) = psdu_bin;
 
-% [Table G.13] First 144 DATA bits
-table_G13 = [
-0 0 24 0 48 0 72 1 96 0 120 1
-1 0 25 1 49 0 73 0 97 0 121 0
-2 0 26 0 50 0 74 1 98 0 122 0
-3 0 27 0 51 0 75 1 99 0 123 0
-4 0 28 0 52 0 76 0 100 0 124 0
-5 0 29 0 53 0 77 0 101 0 125 0
-6 0 30 0 54 0 78 1 102 0 126 0
-7 0 31 0 55 0 79 1 103 0 127 0
-8 0 32 0 56 0 80 1 104 0 128 0
-9 0 33 0 57 0 81 1 105 0 129 0
-10 0 34 0 58 0 82 1 106 0 130 1
-11 0 35 0 59 0 83 0 107 0 131 1
-12 0 36 0 60 0 84 1 108 0 132 1
-13 0 37 0 61 1 85 1 109 1 133 1
-14 0 38 0 62 1 86 0 110 0 134 0
-15 0 39 0 63 0 87 0 111 0 135 0
-16 0 40 0 64 0 88 0 112 0 136 1
-17 0 41 1 65 0 89 1 113 1 137 0
-18 1 42 1 66 0 90 1 114 1 138 0
-19 0 43 1 67 1 91 0 115 0 139 0
-20 0 44 0 68 0 92 0 116 1 140 1
-21 0 45 1 69 0 93 1 117 0 141 1
-22 0 46 0 70 0 94 0 118 1 142 1
-23 0 47 0 71 0 95 1 119 1 143 1];
-% Discard columns of indices
-table_G13(:,1:2:end) = [];
-% Stack in order
-table_G13 = reshape(table_G13, [], 1);
+% [Table I-13] The DATA bits before scrambling
+table_I13 = [
+'000004'
+'02002E'
+'006008'
+'CD37A6'
+'0020D6'
+'013CF1'
+'006008'
+'AD3BAF'
+'00004A'
+'6F792C'
+'206272'
+'696768'
+'742073'
+'706172'
+'6B206F'
+'662064'
+'697669'
+'6E6974'
+'792C0A'
+'446175'
+'676874'
+'657220'
+'6F6620'
+'456C79'
+'736975'
+'6D2C0A'
+'466972'
+'652D69'
+'6E7369'
+'726564'
+'207765'
+'207472'
+'656167'
+'3321B6'
+'000000'
+'000000'];
+table_I13 = dec2bin(hex2dec(reshape(table_I13.',2,[]).'));
+table_I13 = str2num(reshape(fliplr(table_I13).', [], 1)); %#ok
 
 % Sanity check
-assert(isequal(table_G13, data(1:144)));
+assert(isequal(table_I13, data));
 
-% [Table G.14] First 144 DATA bits
-table_G14 = [
-720 0 744 0 768 1 792 1 816 0 840 0
-721 0 745 0 769 0 793 1 817 0 841 0
-722 0 746 0 770 1 794 1 818 0 842 0
-723 0 747 0 771 0 795 0 819 0 843 0
-724 0 748 0 772 0 796 1 820 0 844 0
-725 1 749 1 773 1 797 0 821 0 845 0
-726 0 750 0 774 1 798 1 822 0 846 0
-727 0 751 0 775 0 799 0 823 0 847 0
-728 1 752 0 776 1 800 1 824 0 848 0
-729 1 753 0 777 0 801 0 825 0 849 0
-730 1 754 1 778 0 802 0 826 0 850 0
-731 0 755 0 779 0 803 1 827 0 851 0
-732 1 756 1 780 0 804 1 828 0 852 0
-733 1 757 1 781 1 805 0 829 0 853 0
-734 1 758 1 782 1 806 0 830 0 854 0
-735 0 759 0 783 0 807 1 831 0 855 0
-736 1 760 0 784 0 808 1 832 0 856 0
-737 0 761 1 785 1 809 0 833 0 857 0
-738 1 762 0 786 0 810 1 834 0 858 0
-739 0 763 0 787 1 811 1 835 0 859 0
-740 0 764 1 788 1 812 0 836 0 860 0
-741 1 765 1 789 0 813 1 837 0 861 0
-742 1 766 1 790 1 814 1 838 0 862 0
-743 0 767 0 791 1 815 1 839 0 863 0];
-% Discard columns of indices
-table_G14(:,1:2:end) = [];
-% Stack in order
-table_G14 = reshape(table_G14, [], 1);
+% ------------------------ %
+% -- I.1.5.2 Scrambling -- %
+% ------------------------ %
 
-% Sanity check
-assert(isequal(table_G14, data(end-143:end)));
-
-% ---------------------- %
-% -- G.5.2 Scrambling -- %
-% ---------------------- %
-
-% Initial scrambler state as specified in G.5.2
+% Initial scrambler state as specified in I.1.5.2
 scrambler_init = str2num('1011101'.').'; %#ok
 
 % Scramble
 [scrambled_data, scramble_pattern] = scramble(data, scrambler_init);
+% N.B. Zero the tail bits again before encoding (as per I.1.5.2)
+scrambled_data(Nservice + Nmsg + (1:Ntail)) = 0;
 
-% [Table G.15] Scrambling sequence for seed 1011101
-table_G15 = [
+% [Table I-14] Scrambling sequence for seed 1011101
+table_I14 = [
 0 0 16 1 32 0 48 1 64 0 80 0 96 0 112 1
 1 1 17 0 33 1 49 1 65 1 81 0 97 0 113 0
 2 1 18 1 34 1 50 1 66 1 82 1 98 1 114 0
@@ -591,139 +569,114 @@ table_G15 = [
 14 0 30 1 46 0 62 1 78 0 94 1 110 0 126 1
 15 1 31 1 47 1 63 1 79 0 95 1 111 0 000 0];
 % Discard columns of indices
-table_G15(:,1:2:end) = [];
+table_I14(:,1:2:end) = [];
 % Stack in order
-table_G15 = reshape(table_G15, [], 1);
+table_I14 = reshape(table_I14, [], 1);
 % Discard zero padding
-table_G15 = table_G15(1:127);
+table_I14 = table_I14(1:127);
 
 % Sanity check
-assert(isequal(table_G15, scramble_pattern));
+assert(isequal(table_I14, scramble_pattern));
 
-% [Table G.16] First 144 bits after scrambling
-table_G16 = [
-0 0 24 1 48 1 72 0 96 0 120 0
-1 1 25 0 49 1 73 1 97 0 121 0
-2 1 26 0 50 1 74 0 98 1 122 1
-3 0 27 0 51 1 75 0 99 0 123 1
-4 1 28 1 52 0 76 1 100 0 124 1
-5 1 29 1 53 1 77 1 101 1 125 0
-6 0 30 1 54 0 78 1 102 0 126 1
-7 0 31 1 55 0 79 1 103 0 127 0
-8 0 32 0 56 1 80 1 104 0 128 1
-9 0 33 1 57 0 81 1 105 0 129 1
-10 0 34 1 58 1 82 0 106 0 130 1
-11 1 35 0 59 0 83 1 107 0 131 0
-12 1 36 1 60 0 84 0 108 1 132 0
-13 0 37 0 61 1 85 1 109 1 133 1
-14 0 38 0 62 0 86 1 110 0 134 0
-15 1 39 0 63 1 87 1 111 0 135 0
-16 1 40 0 64 0 88 1 112 1 136 1
-17 0 41 0 65 1 89 0 113 1 137 0
-18 0 42 1 66 1 90 1 114 1 138 1
-19 0 43 0 67 0 91 0 115 1 139 1
-20 1 44 0 68 0 92 1 116 0 140 1
-21 0 45 0 69 0 93 1 117 0 141 1
-22 0 46 0 70 0 94 1 118 1 142 0
-23 1 47 1 71 1 95 0 119 1 143 0];
-% Discard columns of indices
-table_G16(:,1:2:end) = [];
-% Stack in order
-table_G16 = reshape(table_G16, [], 1);
-
-% Sanity check
-assert(isequal(table_G16, scrambled_data(1:144)));
-
-% [Table G.17] Last 144 bits after scrambling
-table_G17 = [
-720 0 744 0 768 1 792 0 816 0 840 0
-721 1 745 0 769 0 793 0 817 0 841 0
-722 1 746 0 770 1 794 1 818 1 842 0
-723 1 747 1 771 0 795 1 819 0 843 0
-724 1 748 0 772 0 796 0 820 1 844 1
-725 1 749 1 773 0 797 0 821 0 845 1
-726 0 750 1 774 0 798 0 822 0 846 1
-727 1 751 1 775 0 799 0 823 0 847 0
-728 1 752 0 776 1 800 1 824 1 848 1
-729 0 753 0 777 1 801 0 825 1 849 1
-730 0 754 1 778 1 802 0 826 0 850 1
-731 0 755 1 779 0 803 0 827 1 851 1
-732 1 756 1 780 1 804 1 828 1 852 0
-733 0 757 0 781 1 805 1 829 1 853 0
-734 1 758 0 782 0 806 0 830 0 854 1
-735 0 759 1 783 0 807 0 831 0 855 0
-736 0 760 0 784 0 808 1 832 0 856 1
-737 0 761 0 785 0 809 1 833 1 857 1
-738 1 762 0 786 1 810 0 834 1 858 0
-739 0 763 1 787 0 811 0 835 1 859 0
-740 0 764 0 788 1 812 1 836 1 860 1
-741 1 765 1 789 0 813 0 837 1 861 0
-742 1 766 0 790 0 814 1 838 1 862 0
-743 1 767 1 791 0 815 0 839 1 863 1];
-% Discard columns of indices
-table_G17(:,1:2:end) = [];
-% Stack in order
-table_G17 = reshape(table_G17, [], 1);
+% [Table I-15] The DATA bits after scrambling
+table_I15 = [
+'6C1989'
+'8F6821'
+'F4A561'
+'4FD7AE'
+'240CF3'
+'3AE4BC'
+'5398C0'
+'1E35B3'
+'E3F825'
+'60D625'
+'3533FE'
+'F0412B'
+'8F531C'
+'8341BE'
+'392866'
+'4466CD'
+'F6A3D8'
+'0DD481'
+'3B2FDF'
+'C358F7'
+'C652EB'
+'708F9E'
+'6A9081'
+'FD7CA9'
+'D15512'
+'0474D9'
+'E93BCD'
+'938D7B'
+'7C7002'
+'2099A1'
+'7D8A27'
+'173915'
+'A0EC95'
+'169110'
+'00DC7F'
+'0EF2C9'];
+table_I15 = dec2bin(hex2dec(reshape(table_I15.',2,[]).'));
+table_I15 = str2num(reshape(table_I15.', [], 1)); %#ok
 
 % Sanity check
-assert(isequal(table_G17, scrambled_data(end-143:end)));
+assert(isequal(table_I15, scrambled_data));
 
-% -------------------------------- %
-% -- G.6.1 Coding the DATA bits -- %
-% -------------------------------- %
-
-% N.B. Zero the tail bits again before encoding (as per G.5.2)
-scrambled_data(Nservice + Nmsg + (1:Ntail)) = 0;
+% ---------------------------------- %
+% -- I.1.6.1 Coding the DATA bits -- %
+% ---------------------------------- %
 
 % Encode
 encoded_data = bcc_encode(scrambled_data);
 punctured_data = puncture(encoded_data, rate_info.r);
 
-% [Table G.18] Coded bits of first DATA symbol
-table_G18 = [
-0 0 32 1 64 0 96 1 128 1 160 1
-1 0 33 0 65 1 97 0 129 1 161 1
-2 1 34 0 66 0 98 0 130 0 162 1
-3 0 35 1 67 0 99 0 131 0 163 0
-4 1 36 1 68 1 100 1 132 0 164 0
-5 0 37 1 69 0 101 1 133 0 165 0
-6 1 38 0 70 1 102 1 134 0 166 0
-7 1 39 1 71 0 103 1 135 0 167 0
-8 0 40 1 72 1 104 1 136 0 168 1
-9 0 41 0 73 1 105 1 137 1 169 1
-10 0 42 1 74 1 106 0 138 0 170 0
-11 0 43 1 75 1 107 0 139 0 171 1
-12 1 44 0 76 1 108 0 140 0 172 0
-13 0 45 1 77 0 109 0 141 0 173 0
-14 0 46 0 78 1 110 0 142 1 174 1
-15 0 47 1 79 1 111 0 143 1 175 1
-16 1 48 1 80 1 112 1 144 1 176 1
-17 0 49 0 81 1 113 1 145 1 177 1
-18 1 50 0 82 1 114 0 146 1 178 1
-19 0 51 1 83 0 115 0 147 0 179 0
-20 0 52 1 84 1 116 1 148 0 180 1
-21 0 53 0 85 0 117 0 149 0 181 0
-22 0 54 1 86 0 118 0 150 0 182 1
-23 1 55 0 87 0 119 0 151 0 183 1
-24 1 56 0 88 1 120 0 152 0 184 1
-25 1 57 0 89 1 121 1 153 0 185 0
-26 1 58 0 90 0 122 1 154 0 186 1
-27 1 59 1 91 0 123 1 155 1 187 1
-28 0 60 1 92 0 124 0 156 1 188 0
-29 0 61 1 93 0 125 0 157 0 189 0
-30 0 62 0 94 1 126 1 158 0 190 1
-31 0 63 1 95 0 127 1 159 1 191 0];
-% Discard columns of indices
-table_G18(:,1:2:end) = [];
-% Stack in order
-table_G18 = reshape(table_G18, [], 1);
+% [Table I-16] The BCC encoded DATA bits
+table_I16 = [
+'2B08A1F0'
+'9DB59A1D'
+'4AFBE8C2'
+'8FC0C873'
+'C043E019'
+'E0D3EBB2'
+'AF98FD59'
+'0F8B6966'
+'0CAAD910'
+'568BA640'
+'64B3219E'
+'8E91C105'
+'B7B7C5D8'
+'802FA2DD'
+'6F2B9761'
+'D9DD0D12'
+'7627024C'
+'92BC124B'
+'6AF77023'
+'278E01B4'
+'D6C36A60'
+'4D4BCB51'
+'9CB080EB'
+'89341440'
+'6C9E2C51'
+'4B7C6911'
+'1586FDBE'
+'5EF9BE28'
+'EFCA5503'
+'FD26913B'
+'95EC5B23'
+'995F283E'
+'D4E9F7B8'
+'13758EF2'
+'A01B6CE9'
+'075DB0BF'];
+table_I16 = dec2bin(hex2dec(reshape(table_I16.',2,[]).'));
+table_I16 = str2num(reshape(table_I16.', [], 1)); %#ok
 
 % Sanity check
-assert(isequal(table_G18, punctured_data(1:192)));
+assert(isequal(table_I16, punctured_data));
 
-% -------------------------------------- %
-% -- G.6.2 Interleaving the DATA bits -- %
-% -------------------------------------- %
+% ---------------------------------------- %
+% -- I.1.6.2 Interleaving the DATA bits -- %
+% ---------------------------------------- %
 
 % Reshape so each column is coded bits for an OFDM symbol
 interleaver_in = reshape(punctured_data, rate_info.Ncbps, []);
@@ -732,8 +685,8 @@ interleaver_in = reshape(punctured_data, rate_info.Ncbps, []);
 interleaved_data = interleave(interleaver_in, rate_info.Nbpsc);
 interleaved_data = interleaved_data(:);
 
-% [Table G.21] Interleaved bits of first DATA symbol
-table_G21 = [
+% [Table I-19] Interleaved bits of first DATA symbol
+table_I19 = [
 0 0 32 0 64 0 96 0 128 0 160 0
 1 1 33 1 65 0 97 1 129 0 161 0
 2 1 34 1 66 0 98 1 130 0 162 0
@@ -767,16 +720,16 @@ table_G21 = [
 30 0 62 0 94 1 126 0 158 1 190 0
 31 0 63 1 95 0 127 1 159 1 191 1];
 % Discard columns of indices
-table_G21(:,1:2:end) = [];
+table_I19(:,1:2:end) = [];
 % Stack in order
-table_G21 = reshape(table_G21, [], 1);
+table_I19 = reshape(table_I19, [], 1);
 
 % Sanity check
-assert(isequal(table_G21, interleaved_data(1:192)));
+assert(isequal(table_I19, interleaved_data(1:192)));
 
-% -------------------------------- %
-% -- G.6.3 Mapping into symbols -- %
-% -------------------------------- %
+% ---------------------------------- %
+% -- I.1.6.3 Mapping into symbols -- %
+% ---------------------------------- %
 
 % Map DATA (QAM)
 mapper_in = reshape(interleaved_data, rate_info.Nbpsc, []);
@@ -797,8 +750,8 @@ for sym = 1:Nsyms
     end
 end
 
-% [Table G.22] Frequency domain of first DATA symbol
-table_G22 = [
+% [Table I-20] Frequency domain of first DATA symbol
+table_I20 = [
 -32 0.000 0.000 -16 -0.949 0.316 0 0.000 0.000 16 -0.316 -0.949
 -31 0.000 0.000 -15 -0.949 -0.949 1 -0.316 0.949 17 -0.949 0.316
 -30 0.000 0.000 -14 -0.949 -0.949 2 0.316 0.949 18 -0.949 -0.949
@@ -816,20 +769,20 @@ table_G22 = [
 -18 -0.316 -0.949 -2 -0.949 -0.316 14 0.949 -0.316 30 0.000 0.000
 -17 -0.316 0.316 -1 -0.949 0.949 15 0.949 -0.949 31 0.000 0.000];
 % Discard columns of indices
-table_G22(:,1:3:end) = [];
+table_I20(:,1:3:end) = [];
 % Convert to complex
-table_G22 = complex(table_G22(:,1:2:end), table_G22(:,2:2:end));
+table_I20 = complex(table_I20(:,1:2:end), table_I20(:,2:2:end));
 % Stack in order
-table_G22 = reshape(table_G22, [], 1);
+table_I20 = reshape(table_I20, [], 1);
 
 % Sanity check (up to 3 decimal places)
-table_G22_err = ofdm_data(1:64).' - table_G22;
-table_G22_err = [real(table_G22_err); imag(table_G22_err)];
-assert(all(abs(table_G22_err) < 0.001));
+table_I20_err = ofdm_data(1:64).' - table_I20;
+table_I20_err = [real(table_I20_err); imag(table_I20_err)];
+assert(all(abs(table_I20_err) < 0.001));
 
-% =========================== %
-% == G.8 The entire packet == %
-% =========================== %
+% ============================= %
+% == I.1.8 The entire packet == %
+% ============================= %
 
 % Preamble sizes (excluding weighted overlap)
 Nstf = 160;
@@ -859,8 +812,8 @@ end
 % Drop the final overlap sample
 whole_packet(end) = [];
 
-% [Table G.24] The entire packet
-table_G24 = [
+% [Tables I-22 - I30] The entire packet
+tables_I22_I30 = [
 0 0.023 0.023 1 -0.132 0.002 2 -0.013 -0.079 3 0.143 -0.013
 4 0.092 0.000 5 0.143 -0.013 6 -0.013 -0.079 7 -0.132 0.002
 8 0.046 0.046 9 0.002 -0.132 10 -0.079 -0.013 11 -0.013 0.143
@@ -1061,39 +1014,39 @@ table_G24 = [
 788 -0.106 -0.062 789 0.002 0.057 790 -0.008 -0.011 791 0.019 0.072
 792 0.016 0.059 793 -0.065 -0.077 794 0.142 -0.062 795 0.087 0.025
 796 -0.003 -0.103 797 0.107 -0.152 798 -0.054 0.036 799 -0.030 -0.003
-800 0.039 -0.090 801 0.029 0.025 802 0.086 -0.029 803 0.087 -0.082
-804 0.003 -0.036 805 -0.096 -0.089 806 -0.073 -0.046 807 0.105 -0.020
-808 0.193 0.018 809 -0.053 -0.073 810 -0.118 -0.149 811 0.019 -0.019
-812 -0.042 0.026 813 0.041 0.009 814 0.028 -0.076 815 -0.038 -0.068
-816 -0.011 0.010 817 -0.134 -0.064 818 0.069 -0.067 819 0.057 0.006
-820 -0.134 0.098 821 0.152 0.036 822 0.041 -0.085 823 -0.099 -0.049
-824 0.089 -0.099 825 -0.046 0.018 826 -0.112 0.135 827 -0.064 0.018
-828 -0.022 0.053 829 0.041 0.077 830 -0.021 0.145 831 0.007 0.179
-832 0.059 0.041 833 0.023 0.064 834 0.062 0.022 835 0.110 -0.081
-836 -0.016 -0.054 837 -0.014 -0.017 838 0.171 0.008 839 0.070 -0.027
-840 -0.015 0.002 841 -0.012 0.053 842 -0.125 0.009 843 -0.040 0.012
-844 0.036 0.114 845 0.007 0.090 846 -0.016 -0.082 847 -0.008 -0.013
-848 0.091 0.030 849 0.072 -0.068 850 0.051 0.063 851 -0.004 0.049
-852 -0.130 -0.048 853 -0.121 0.061 854 -0.095 0.078 855 0.011 0.005
-856 0.049 0.001 857 -0.014 -0.011 858 0.009 -0.063 859 -0.031 0.040
-860 -0.011 0.004 861 -0.033 -0.111 862 -0.115 0.137 863 -0.025 0.049
-864 0.020 -0.160 865 0.029 0.025 866 0.086 -0.029 867 0.087 -0.082
-868 0.003 -0.036 869 -0.096 -0.089 870 -0.073 -0.046 871 0.105 -0.020
-872 0.193 0.018 873 -0.053 -0.073 874 -0.118 -0.149 875 0.019 -0.019
-876 -0.042 0.026 877 0.041 0.009 878 0.028 -0.076 879 -0.038 -0.068
-880 -0.006 0.005 000 00000 00000 000 00000 000000 000 000000 000000];
+800 0.029 -0.026 801 -0.047 0.077 802 -0.007 -0.002 803 0.050 -0.021
+804 0.046 -0.040 805 -0.061 -0.099 806 -0.121 0.008 807 0.014 0.050
+808 0.145 0.034 809 0.001 -0.046 810 -0.058 -0.121 811 0.040 0.001
+812 -0.029 0.041 813 0.002 -0.066 814 0.015 -0.054 815 0.010 -0.029
+816 0.008 -0.119 817 -0.134 0.002 818 0.064 0.079 819 0.095 -0.102
+820 -0.069 -0.014 821 0.156 0.037 822 0.047 -0.008 823 -0.076 0.025
+824 0.117 -0.143 825 0.056 -0.042 826 0.002 0.075 827 -0.039 -0.058
+828 -0.092 0.014 829 -0.041 0.047 830 -0.058 0.092 831 0.012 0.154
+832 0.079 0.091 833 -0.067 0.017 834 -0.102 -0.032 835 0.039 0.084
+836 -0.036 0.014 837 -0.001 -0.046 838 0.195 0.131 839 0.039 0.067
+840 -0.007 0.045 841 0.051 0.008 842 -0.074 -0.109 843 -0.033 0.070
+844 -0.028 0.176 845 -0.041 0.045 846 0.014 -0.084 847 0.054 -0.040
+848 0.110 -0.020 849 0.014 -0.021 850 0.006 0.139 851 0.008 0.011
+852 -0.060 -0.040 853 0.008 0.179 854 0.008 0.020 855 0.044 -0.114
+856 0.021 -0.015 857 -0.008 -0.052 858 0.091 -0.109 859 -0.025 -0.040
+860 -0.049 0.006 861 -0.043 -0.041 862 -0.178 -0.026 863 -0.073 -0.057
+864 0.000 -0.031 865 -0.047 0.077 866 -0.007 -0.002 867 0.050 -0.021
+868 0.046 -0.040 869 -0.061 -0.099 870 -0.121 0.008 871 0.014 0.050
+872 0.145 0.034 873 0.001 -0.046 874 -0.058 -0.121 875 0.040 0.001
+876 -0.029 0.041 877 0.002 -0.066 878 0.015 -0.054 879 0.010 -0.029
+880 0.004 -0.059 000 00000 000000 000 00000 000000 000 00000 000000];
 % Discard columns of indices
-table_G24(:,1:3:end) = [];
+tables_I22_I30(:,1:3:end) = [];
 % Convert to complex
-table_G24 = complex(table_G24(:,1:2:end), table_G24(:,2:2:end));
+tables_I22_I30 = complex(tables_I22_I30(:,1:2:end), tables_I22_I30(:,2:2:end));
 % Stack in order
-table_G24 = reshape(table_G24.', [], 1);
+tables_I22_I30 = reshape(tables_I22_I30.', [], 1);
 % Discard zero-padding
-table_G24 = table_G24(1:880);
+tables_I22_I30 = tables_I22_I30(1:880);
 
 % Sanity check (up to 3 decimal places)
-table_G24_err = whole_packet - table_G24;
-table_G24_err = [real(table_G24_err); imag(table_G24_err)];
-assert(all(abs(table_G24_err) < 0.001));
+tables_I22_I30_err = whole_packet - tables_I22_I30;
+tables_I22_I30_err = [real(tables_I22_I30_err); imag(tables_I22_I30_err)];
+assert(all(abs(tables_I22_I30_err) < 0.001));
 
 disp('Done.');
