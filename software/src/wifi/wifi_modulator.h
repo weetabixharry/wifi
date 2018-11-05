@@ -18,7 +18,7 @@ namespace wifi
 	class modulator
 	{
 		public:
-			modulator() {}
+			modulator() : _debug_to_file(false) {}
 			
 			void modulate(const uint8_t* mac, size_t Nmac, const uint8_t* msg, size_t Nmsg, size_t mcs)
 			{
@@ -50,7 +50,13 @@ namespace wifi
 				_data[_data.size()-1] += data_timedomain[0]; // (overlap)
 				copy(data_timedomain.begin()+1, data_timedomain.end(), back_inserter(_data));
 				
-				util::save_data(_data, "whole_packet.cf", false);
+				if (_debug_to_file)
+				{
+					util::save_data(_data, "whole_packet.cf", false);
+					util::save_data(wifi::stf_161, "stf_161.cf", false);
+					util::save_data(wifi::ltf_161, "ltf_161.cf", false);
+					util::save_data(sig_timedomain, "sig_timedomain.cf", false);
+				}
 			}
 			
 		private:
@@ -132,6 +138,48 @@ namespace wifi
 				return y;
 			}
 			
+			std::vector<std::complex<float> > modulate_part(std::vector<uint8_t>& data, bool scramble,
+												size_t tail_index, rate_info_t::coding_rate_t r, size_t Ncbps,
+												size_t Nbpsc)
+			{
+				if (scramble)
+				{	
+					// Scramble (in-place)
+					_scrambler.scramble(data);
+					// N.B. Zero the tail bits again before encoding (see I.1.5.2)
+					data[tail_index] &= 0xC0;
+				}
+				
+				// BCC encode
+				std::vector<uint8_t> encoded_data = _bcc.encode(&data[0], data.size(), r);
+				
+				// Interleave
+				std::vector<uint8_t> interleaved_data = _interleaver.interleave(encoded_data, Ncbps, Nbpsc);
+				
+				// Map
+				std::vector<std::complex<float> > mapped_data = _mapper.map(interleaved_data, Nbpsc);
+				
+				if (_debug_to_file)
+					if (scramble)
+					{
+						util::save_data(data, "data_scrambled.u8", false);
+						util::save_data(encoded_data, "data_encoded.u8", false);
+						util::save_data(interleaved_data, "data_interleaved.u8", false);
+						util::save_data(mapped_data, "data_mapped.cf", false);
+					}
+					else
+					{
+						util::save_data(data, "sig_bits.u8", false);
+						util::save_data(encoded_data, "sig_encoded.u8", false);
+						util::save_data(interleaved_data, "sig_interleaved.u8", false);
+						util::save_data(mapped_data, "sig_mapped.cf", false);
+					}
+				
+				// Generate time-domain DATA
+				return construct_ofdm_data(mapped_data);
+			}
+				
+				
 			std::vector<std::complex<float> > generate_sig(size_t mcs, size_t psdu_length)
 			{
 				// Create SIG object
@@ -140,19 +188,8 @@ namespace wifi
 				// Retrieve raw SIG bytes
 				std::vector<uint8_t> sig_bytes = _sig.get_bytes();
 				
-				// BCC encode SIG
-				std::vector<uint8_t> sig_encoded = _bcc.encode(sig_bytes, rate_info_t::RATE_1_2);
-				
-				// Interleave SIG
-				std::vector<uint8_t> sig_interleaved = _interleaver.interleave(sig_encoded, 48, 1);
-				
-				// Map SIG
-				std::vector<std::complex<float> > sig_mapped = _mapper.map(sig_interleaved, 1);
-				
-				// Generate time-domain SIG data
-				std::vector<std::complex<float> > sig_timedomain = construct_ofdm_data(sig_mapped);
-				
-				return sig_timedomain;
+				// Modulate SIG (unscrambled r=1/2 BPSK)
+				return modulate_part(sig_bytes, false, 0, rate_info_t::RATE_1_2, 48, 1);
 			}
 			
 			std::vector<std::complex<float> > generate_data(const uint8_t* mac, size_t mac_bytes,
@@ -185,37 +222,18 @@ namespace wifi
 				for (size_t i=2+Npsdu; i<Nbytes; i++)
 					data[i] = 0;
 				
-				util::save_data(data, "scrambler_in.u8", false);
+				if (_debug_to_file)
+				{
+					util::save_data(&data[2], psdu_bytes, "psdu.u8", false);
+					util::save_data(data, "scrambler_in.u8", false);
+				}
 				
-				// Scramble
-				_scrambler.scramble(data);
-				
-				// N.B. Zero the tail bits again before encoding (see I.1.5.2)
-				data[(Nservice+Npsdu)/8] &= 0xC0;
-				
-				util::save_data(data, "data_scrambled.u8", false);
-				
-				std::vector<uint8_t> punctured_data = _bcc.encode(&data[0], data.size(), rate_info.r);
-				
-				util::save_data(punctured_data, "data_punctured.u8", false);
-				
-				std::vector<uint8_t> interleaved_data = _interleaver.interleave(punctured_data, rate_info.Ncbps, rate_info.Nbpsc);
-				
-				util::save_data(interleaved_data, "data_interleaved.u8", false);
-				
-				// Map DATA
-				std::vector<std::complex<float> > mapped_data = _mapper.map(interleaved_data, rate_info.Nbpsc);
-				
-				util::save_data(mapped_data, "data_mapped.cf", false);
-				
-				// Generate time-domain DATA
-				std::vector<std::complex<float> > timedomain_data = construct_ofdm_data(mapped_data);
-				
-				util::save_data(timedomain_data, "data_timedomain.cf", false);
-
-				return timedomain_data;
+				// Modulate DATA
+				const size_t tail_index = (Nservice+Npsdu)/8;
+				return modulate_part(data, true, tail_index, rate_info.r, rate_info.Ncbps, rate_info.Nbpsc);
 			}
 			
+			const bool _debug_to_file;
 			sig _sig;
 			bcc_encoder _bcc;
 			interleaver _interleaver;
