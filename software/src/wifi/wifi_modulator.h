@@ -20,12 +20,14 @@ namespace wifi
 		public:
 			modulator() : _debug_to_file(false) {}
 			
-			void modulate(const uint8_t* mac, size_t Nmac, const uint8_t* msg, size_t Nmsg, size_t mcs)
+			// Note: If mac is not specified, we assume it is included in msg
+			const std::vector<std::complex<float> >& modulate(const uint8_t* msg, size_t Nmsg, size_t mcs, const uint8_t* mac = nullptr, size_t Nmac = 0)
 			{
 				// Reset pilot polarity at start of every packet
 				_p127_index = 0;
 				
 				// Reserve enough space for STF+LTF+SIG (+ 1-sample overlap)
+				_data.clear();
 				_data.reserve(160+160+81);
 				
 				// Write STF and LTF with overlap
@@ -57,19 +59,30 @@ namespace wifi
 					util::save_data(wifi::ltf_161, "ltf_161.cf", false);
 					util::save_data(sig_timedomain, "sig_timedomain.cf", false);
 				}
+				
+				return _data;
 			}
 			
 		private:
 			
 			void construct_psdu(const uint8_t* mac, size_t Nmac, const uint8_t* msg, size_t Nmsg, uint8_t* psdu)
 			{
-				// (1) MAC Header
-				for (size_t i=0; i<Nmac; i++)
-					psdu[i] = mac[i];
-				
-				// (2) Message
-				for (size_t i=0; i<Nmsg; i++)
-					psdu[Nmac+i] = msg[i];
+				// If MAC is not specified, then we assume msg includes it.
+				if (!mac)
+				{
+					for (size_t i=0; i<Nmsg; i++)
+						psdu[i] = msg[i];
+				}
+				else
+				{
+					// (1) MAC Header
+					for (size_t i=0; i<Nmac; i++)
+						psdu[i] = mac[i];
+
+					// (2) Message
+					for (size_t i=0; i<Nmsg; i++)
+						psdu[Nmac+i] = msg[i];
+				}
 				
 				// Compute FCS
 				comms::crc crc_generator;

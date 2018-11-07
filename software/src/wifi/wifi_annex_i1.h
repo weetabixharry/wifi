@@ -24,7 +24,7 @@ namespace wifi
 		
 		// Instantiate modulator
 		wifi::modulator mod;
-		mod.modulate(&mac[0], Nmac, (const uint8_t*) &msg[0], Nmsg, mcs);
+		mod.modulate((const uint8_t*) &msg[0], Nmsg, mcs, &mac[0], Nmac);
 		
 		std::cout << "Done." << std::endl;
 	}
