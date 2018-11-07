@@ -71,7 +71,7 @@ namespace wifi
 				// Determine output size
 				uint8_t num, den;
 				rate_info_t::get_rate_num_den(r, &num, &den);
-				*out_bits = (x.size() * 8 * den) / size_t(2*num);
+				*out_bits = (x.size() * 4 * den + num - 1) / size_t(num);
 				const size_t out_bytes = (*out_bits + 7) / 8;
 				
 				std::vector<uint8_t> y(out_bytes);
@@ -110,7 +110,12 @@ namespace wifi
 					}
 				}
 				
-				assert(out_bit_count == *out_bits);
+				// Catch bugs
+				if (out_bit_count != *out_bits)
+				{
+					std::cout << "Error! " << out_bit_count << " != " << *out_bits << std::endl;
+					exit(1);
+				}
 				
 				return y;
 			}
