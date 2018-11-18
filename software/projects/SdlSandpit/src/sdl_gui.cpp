@@ -42,7 +42,7 @@ bool sdl_gui::init()
 	bool success = true;
 	
 	//Initialize SDL
-	if(SDL_Init(SDL_INIT_VIDEO) < 0)
+	if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0)
 	{
 		printf( "SDL could not initialize! SDL Error: %s\n", SDL_GetError() );
 		success = false;
@@ -81,6 +81,13 @@ bool sdl_gui::init()
 					success = false;
 				}
 				
+				 //Initialize SDL_mixer
+				if(Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048 ) < 0)
+				{
+					printf( "SDL_mixer could not initialize! SDL_mixer Error: %s\n", Mix_GetError() );
+					success = false;
+				}
+				
 				 //Initialize SDL_ttf
 				if (TTF_Init() == -1)
 				{
@@ -96,17 +103,20 @@ bool sdl_gui::init()
 
 sdl_gui::~sdl_gui()
 {
-	//Free loaded images
-	for (int i=0; i<_button_textures.size(); i++)
-		_button_textures[i].free();
-
-	//Destroy window	
-	SDL_DestroyRenderer(_renderer);
-	_renderer = NULL;
-	SDL_DestroyWindow(_window);
-	_window = NULL;
+	// Destroy window
+	if (_renderer != NULL)
+	{
+		SDL_DestroyRenderer(_renderer);
+		_renderer = NULL;
+	}
+	if (_window != NULL)
+	{
+		SDL_DestroyWindow(_window);
+		_window = NULL;
+	}
 
 	// Quit SDL subsystems
+	Mix_Quit();
 	IMG_Quit();
 	SDL_Quit();
 }
@@ -128,13 +138,17 @@ void sdl_gui::run()
 			// User requests quit
 			if (e.type == SDL_QUIT)
 				quit = true;
-
-			//Handle button events
-			for(int i=0; i<TOTAL_BUTTONS; i++)
-				_buttons[i].handleEvent(&e);
+			else
+			{
+				//Handle button events
+				for (int i=0; i<TOTAL_BUTTONS; i++)
+					_buttons[i].handleEvent(&e);
+				
+				_audio.handle_event(e);
+			}
 		}
 
-		//Clear screen
+		// Clear screen
 		SDL_SetRenderDrawColor(_renderer, 0x80, 0x80, 0x80, 0xFF);
 		SDL_RenderClear(_renderer);
 

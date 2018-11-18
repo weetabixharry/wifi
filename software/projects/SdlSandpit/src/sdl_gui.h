@@ -3,6 +3,7 @@
 
 #include "sdl_texture.h"
 #include "sdl_button.h"
+#include "sdl_audio.h"
 
 #include <cstdlib>
 #include <vector>
@@ -30,6 +31,7 @@ private:
 	
 	std::vector<sdl_texture> _button_textures;
 	std::vector<sdl_button> _buttons;
+	sdl_audio _audio;
 };
 
 #endif	/* SDL_GUI_H */

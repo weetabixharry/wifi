@@ -73,10 +73,10 @@ bool sdl_texture::loadFromRenderedText(std::string textureText, SDL_Color textCo
 
 void sdl_texture::free()
 {
-	//Free texture if it exists
+	// Free texture if it exists
 	if(_texture != NULL)
 	{
-		SDL_DestroyTexture( _texture );
+		SDL_DestroyTexture(_texture);
 		_texture = NULL;
 		_w = 0;
 		_h = 0;
