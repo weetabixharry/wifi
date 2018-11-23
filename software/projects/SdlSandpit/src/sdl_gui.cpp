@@ -44,7 +44,7 @@ bool sdl_gui::init()
 	//Initialize SDL
 	if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0)
 	{
-		printf( "SDL could not initialize! SDL Error: %s\n", SDL_GetError() );
+		std::cout << "SDL could not initialize! SDL Error: " << SDL_GetError() << std::endl;
 		success = false;
 	}
 	else
@@ -52,14 +52,14 @@ bool sdl_gui::init()
 		//Set texture filtering to linear
 		if(!SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1" ))
 		{
-			printf( "Warning: Linear texture filtering not enabled!" );
+			std::cout <<  "Warning: Linear texture filtering not enabled!" << std::endl;
 		}
 
 		//Create window
 		_window = SDL_CreateWindow( "SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, _w, _h, SDL_WINDOW_SHOWN);
 		if(_window == NULL)
 		{
-			printf( "Window could not be created! SDL Error: %s\n", SDL_GetError() );
+			std::cout <<  "Window could not be created! SDL Error: " << SDL_GetError() << std::endl;
 			success = false;
 		}
 		else
@@ -68,7 +68,7 @@ bool sdl_gui::init()
 			_renderer = SDL_CreateRenderer(_window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 			if(_renderer == NULL)
 			{
-				printf( "Renderer could not be created! SDL Error: %s\n", SDL_GetError() );
+				std::cout << "Renderer could not be created! SDL Error: " << SDL_GetError() << std::endl;
 				success = false;
 			}
 			else
@@ -77,21 +77,21 @@ bool sdl_gui::init()
 				int imgFlags = IMG_INIT_PNG;
 				if( !( IMG_Init(imgFlags) & imgFlags ) )
 				{
-					printf( "SDL_image could not initialize! SDL_image Error: %s\n", IMG_GetError() );
+					std::cout << "SDL_image could not initialize! SDL_image Error: " << IMG_GetError() << std::endl;
 					success = false;
 				}
 				
 				 //Initialize SDL_mixer
 				if(Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048 ) < 0)
 				{
-					printf( "SDL_mixer could not initialize! SDL_mixer Error: %s\n", Mix_GetError() );
+					std::cout << "SDL_mixer could not initialize! SDL_mixer Error: " << Mix_GetError() << std::endl;
 					success = false;
 				}
 				
 				 //Initialize SDL_ttf
 				if (TTF_Init() == -1)
 				{
-					printf( "SDL_ttf could not initialize! SDL_ttf Error: %s\n", TTF_GetError() );
+					std::cout << "SDL_ttf could not initialize! SDL_ttf Error: %s\n" << TTF_GetError() << std::endl;
 					success = false;
 				}
 			}

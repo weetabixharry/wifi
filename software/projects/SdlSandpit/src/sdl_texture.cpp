@@ -54,7 +54,7 @@ bool sdl_texture::loadFromRenderedText(std::string textureText, SDL_Color textCo
         _texture = SDL_CreateTextureFromSurface(_renderer, textSurface);
 		if( _texture == NULL )
 		{
-			printf( "Unable to create texture from rendered text! SDL Error: %s\n", SDL_GetError() );
+			std::cout << "Unable to create texture from rendered text! SDL Error: " << SDL_GetError() << std::endl;
 		}
 		else
 		{
